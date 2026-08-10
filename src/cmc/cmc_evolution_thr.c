@@ -318,6 +318,9 @@ double GetTimeStep(gsl_rng *rng) {
 	double DTrel, Tcoll, DTcoll, Tbb, DTbb= GSL_POSINF, Tbs, DTbs=GSL_POSINF, 
                Tse, DTse, Trejuv, DTrejuv, xcoll;
 	central_t central_hard;
+	/* the sample of central binaries actually used for DTbb/DTbs (hard binaries if
+	   DT_HARD_BINARIES, all central binaries otherwise); used for the timestep file */
+	central_t central_dt = central;
 
 	/* calculate the relaxation timestep */
 	if (RELAXATION || FORCE_RLX_STEP) {
@@ -355,7 +358,8 @@ double GetTimeStep(gsl_rng *rng) {
     if (DT_HARD_BINARIES) {
         if(myid==0)
         {
-            central_hard= central_hard_binary(HARD_BINARY_KT, central);
+            central_hard = central_hard_binary(HARD_BINARY_KT, central);
+            central_dt= central_hard;
             dprintf("number of hard binaries with ktmin< %g: %li\n", HARD_BINARY_KT, central_hard.N_bin);
 
             /* calculate DTbb, using a generalization of the expression for Tcoll */
@@ -433,6 +437,18 @@ double GetTimeStep(gsl_rng *rng) {
 
 	/* debugging */
 	rootdprintf("Dt=%.18g DTrel=%.18g DTcoll=%.18g DTbb=%.18g DTbs=%.18g DTse=%.18g DTrejuv=%.18g\n", Dt, DTrel, DTcoll, DTbb, DTbs, DTse, DTrejuv);
+
+	/* timestep diagnostic file: candidate timesteps, per-binary Tbb/Tbs statistics over
+	   all central binaries (from central_calculate), and the central quantities of the
+	   binary sample actually used for DTbb/DTbs (central_dt) */
+	pararootfprintf(timestepfile, "%ld %.18g %.18g %.18g %.18g %.18g %.18g %.18g %.18g %.18g %.18g %.18g %.18g %.18g %.18g %ld %.18g %.18g %.18g %.18g %.18g %.18g %.18g %.18g %ld\n",
+		tcount, TotalTime, Dt, DTrel, DTcoll, DTbb, DTbs, DTse, DTrejuv,
+		central.Tbb_median, central.Tbs_median, central.Tbb_p99, central.Tbs_p99,
+		central.Tbb_min, central.Tbs_min,
+		central_dt.N_bin,
+		central.n_sin, central_dt.n_bin, central.v_rms, central_dt.v_bin_rms,
+		central_dt.a_ave, central_dt.a2_ave, central.m_ave, central_dt.ma_ave,
+		clus.N_STAR);
 
 	return (Dt);
 }

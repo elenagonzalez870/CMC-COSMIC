@@ -700,6 +700,7 @@ void PrintParaFileOutput(void)
     mpi_para_file_write(mpi_removestarfile_wrbuf, &mpi_removestarfile_len, &mpi_removestarfile_ofst_total, &mpi_removestarfile);
     mpi_para_file_write(mpi_relaxationfile_wrbuf, &mpi_relaxationfile_len, &mpi_relaxationfile_ofst_total, &mpi_relaxationfile);
     mpi_para_file_write(mpi_triplefile_wrbuf, &mpi_triplefile_len, &mpi_triplefile_ofst_total, &mpi_triplefile);
+    mpi_para_file_write(mpi_timestepfile_wrbuf, &mpi_timestepfile_len, &mpi_timestepfile_ofst_total, &mpi_timestepfile);
 
 	 if(WRITE_PULSAR_INFO)
 		 mpi_para_file_write(mpi_pulsarfile_wrbuf, &mpi_pulsarfile_len, &mpi_pulsarfile_ofst_total, &mpi_pulsarfile);
@@ -2470,6 +2471,12 @@ MPI: In the parallel version, IO is done in the following way. Some files requir
 	if(RESTART_TCOUNT <= 0)
 		MPI_File_set_size(mpi_relaxationfile, 0);
 
+    /* timestep diagnostic file */
+    sprintf(outfile, "%s.timestep.dat", outprefix);
+    MPI_File_open(MPI_COMM_WORLD, outfile, MPI_MODE_RESTART, MPI_INFO_NULL, &mpi_timestepfile);
+	if(RESTART_TCOUNT <= 0)
+		MPI_File_set_size(mpi_timestepfile, 0);
+
     if (THREEBODYBINARIES)
     {
         sprintf(outfile, "%s.3bb.log", outprefix);
@@ -2557,6 +2564,9 @@ MPI: In the parallel version, IO is done in the following way. Some files requir
 	   //Sourav:  print header
 		pararootfprintf(removestarfile, "#single destroyed: time star_id star_mass(MSun) star_age(Gyr) star_birth(Gyr) star_lifetime(Gyr)\n");
 		pararootfprintf(removestarfile, "#binary destroyed: time obj_id bin_id removed_comp_id left_comp_id m1(MSun) m2(MSun) removed_m(MSun) left_m(MSun) left_m_sing(MSun) star_age(Gyr) star_birth(Gyr) star_lifetime(Gyr)\n");
+
+	   // print header for the timestep diagnostic file
+		pararootfprintf(timestepfile, "#1:tcount #2:TotalTime #3:Dt #4:DTrel #5:DTcoll #6:DTbb #7:DTbs #8:DTse #9:DTrejuv #10:Tbb_median #11:Tbs_median #12:Tbb_p99 #13:Tbs_p99 #14:Tbb_min #15:Tbs_min #16:N_bin_dt #17:n_sin #18:n_bin_dt #19:v_rms #20:v_bin_rms_dt #21:a_ave_dt #22:a2_ave_dt #23:m_ave #24:ma_ave_dt #25:N_STAR\n");
 
 		if (THREEBODYBINARIES)
 			{
@@ -2700,6 +2710,7 @@ void mpi_close_node_buffers(void)
 	MPI_File_close(&mpi_tidalcapturefile);
 	MPI_File_close(&mpi_semergedisruptfile);
 	MPI_File_close(&mpi_relaxationfile);
+	MPI_File_close(&mpi_timestepfile);
 	/*Sourav: closing the file I opened*/
 	MPI_File_close(&mpi_removestarfile);
     /* Meagan: close 3bb log file */
@@ -4004,6 +4015,13 @@ void load_restart_file(){
 	/*Set the MPI files back to exactly where they were, using the saved offsets*/
     /*Only for a soft restart ('-r' on command line)*/
     if(RESTART_TCOUNT > 0){
+        /* The timestep file offset is not saved in the restart struct (to keep old
+           checkpoint files compatible), so just append to the end of the existing file. */
+        MPI_Offset timestepfile_size;
+        MPI_File_get_size(mpi_timestepfile, &timestepfile_size);
+        mpi_timestepfile_ofst_total = timestepfile_size;
+        mpi_timestepfile_len = 0;
+
         MPI_File_seek(mpi_logfile,mpi_logfile_ofst_total,MPI_SEEK_SET);
         MPI_File_seek(mpi_binintfile,mpi_binintfile_ofst_total,MPI_SEEK_SET);
         MPI_File_seek(mpi_triplefile,mpi_triplefile_ofst_total,MPI_SEEK_SET);
@@ -4051,6 +4069,7 @@ void load_restart_file(){
         mpi_newnsfile_len=0;
 	mpi_morecollfile_len=0;
 	mpi_triplefile_len=0;
+	mpi_timestepfile_len=0;
 	mpi_newbhfile_len=0;
 	mpi_bhmergerfile_len=0;
 
@@ -4069,6 +4088,7 @@ void load_restart_file(){
         mpi_newnsfile_ofst_total=0;
 	mpi_morecollfile_ofst_total=0;
 	mpi_triplefile_ofst_total=0;
+	mpi_timestepfile_ofst_total=0;
 	mpi_newbhfile_ofst_total=0;
 	mpi_bhmergerfile_ofst_total=0;
     }

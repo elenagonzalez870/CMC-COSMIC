@@ -1618,6 +1618,30 @@ typedef struct{
 * @brief  average of m*a for binaries
 */
 	double ma_ave;
+/**
+* @brief  median of the per-binary binary-binary interaction timescales of the central binaries (timestep diagnostic)
+*/
+	double Tbb_median;
+/**
+* @brief  median of the per-binary binary-single interaction timescales of the central binaries (timestep diagnostic)
+*/
+	double Tbs_median;
+/**
+* @brief  1st-percentile (i.e. 99% of binaries have longer) per-binary binary-binary interaction timescale (timestep diagnostic)
+*/
+	double Tbb_p99;
+/**
+* @brief  1st-percentile (i.e. 99% of binaries have longer) per-binary binary-single interaction timescale (timestep diagnostic)
+*/
+	double Tbs_p99;
+/**
+* @brief  shortest per-binary binary-binary interaction timescale among the central binaries (timestep diagnostic)
+*/
+	double Tbb_min;
+/**
+* @brief  shortest per-binary binary-single interaction timescale among the central binaries (timestep diagnostic)
+*/
+	double Tbs_min;
 } central_t;
 
 /* useful structure for core quantities */
