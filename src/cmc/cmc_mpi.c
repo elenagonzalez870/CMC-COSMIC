@@ -215,14 +215,16 @@ void mpiAllocFileBuffers(void){
     mpi_triplefile_buf = mpi_tidalcapturefile_buf = mpi_tdefile_buf = mpi_semergedisruptfile_buf = 
     mpi_removestarfile_buf = mpi_relaxationfile_buf = mpi_bhsummaryfile_buf = 
     mpi_escbhsummaryfile_buf = mpi_newbhfile_buf = mpi_bhmergerfile_buf = mpi_threebbfile_buf = 
-    mpi_threebbprobabilityfile_buf = mpi_lightcollisionfile_buf = mpi_threebbdebugfile_buf = NULL;
+    mpi_threebbprobabilityfile_buf = mpi_lightcollisionfile_buf = mpi_threebbdebugfile_buf = 
+    mpi_timestepfile_buf = NULL;
 
     mpi_logfile_wrbuf = mpi_escfile_wrbuf = mpi_binintfile_wrbuf = mpi_collisionfile_wrbuf = 
     mpi_pulsarfile_wrbuf = mpi_morepulsarfile_wrbuf = mpi_newnsfile_wrbuf = mpi_morecollfile_wrbuf = 
     mpi_triplefile_wrbuf = mpi_tidalcapturefile_wrbuf = mpi_tdefile_wrbuf = mpi_semergedisruptfile_wrbuf = 
     mpi_removestarfile_wrbuf = mpi_relaxationfile_wrbuf = mpi_bhsummaryfile_wrbuf = 
     mpi_escbhsummaryfile_wrbuf = mpi_newbhfile_wrbuf = mpi_bhmergerfile_wrbuf = mpi_threebbfile_wrbuf = 
-    mpi_threebbprobabilityfile_wrbuf = mpi_lightcollisionfile_wrbuf = mpi_threebbdebugfile_wrbuf = NULL;
+    mpi_threebbprobabilityfile_wrbuf = mpi_lightcollisionfile_wrbuf = mpi_threebbdebugfile_wrbuf = 
+    mpi_timestepfile_wrbuf = NULL;
 
     // Regular buffers
     if ((mpi_logfile_buf = (char *)malloc(STR_BUF_LEN)) == NULL) error = 1;
@@ -247,6 +249,7 @@ void mpiAllocFileBuffers(void){
     if ((mpi_threebbprobabilityfile_buf = (char *)malloc(STR_BUF_LEN)) == NULL) error = 1;
     if ((mpi_lightcollisionfile_buf = (char *)malloc(STR_BUF_LEN)) == NULL) error = 1;
     if ((mpi_threebbdebugfile_buf = (char *)malloc(STR_BUF_LEN)) == NULL) error = 1;
+    if ((mpi_timestepfile_buf = (char *)malloc(STR_BUF_LEN)) == NULL) error = 1;
 
     // Write buffers
     if ((mpi_logfile_wrbuf = (char *)malloc(STR_WRBUF_LEN)) == NULL) error = 1;
@@ -271,6 +274,7 @@ void mpiAllocFileBuffers(void){
     if ((mpi_threebbprobabilityfile_wrbuf = (char *)malloc(STR_WRBUF_LEN)) == NULL) error = 1;
     if ((mpi_lightcollisionfile_wrbuf = (char *)malloc(STR_WRBUF_LEN)) == NULL) error = 1;
     if ((mpi_threebbdebugfile_wrbuf = (char *)malloc(STR_WRBUF_LEN)) == NULL) error = 1;
+    if ((mpi_timestepfile_wrbuf = (char *)malloc(STR_WRBUF_LEN)) == NULL) error = 1;
 
     if (error) {
         eprintf("Can't allocate buffer for mpi files\n");
@@ -304,6 +308,7 @@ void mpiFreeFileBuffers(void) {
     free(mpi_threebbprobabilityfile_buf);
     free(mpi_lightcollisionfile_buf);
     free(mpi_threebbdebugfile_buf);
+    free(mpi_timestepfile_buf);
 
     // Write buffers
     free(mpi_logfile_wrbuf);
@@ -328,4 +333,5 @@ void mpiFreeFileBuffers(void) {
     free(mpi_threebbprobabilityfile_wrbuf);
     free(mpi_lightcollisionfile_wrbuf);
     free(mpi_threebbdebugfile_wrbuf);
+    free(mpi_timestepfile_wrbuf);
 }

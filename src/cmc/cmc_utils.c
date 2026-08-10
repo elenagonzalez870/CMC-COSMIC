@@ -1234,6 +1234,15 @@ double compute_tidal_boundary(void){
 }
 
 /**
+* @brief ascending-order comparison function for qsort on doubles
+*/
+static int compare_double(const void *a, const void *b) {
+	double da = *(const double *) a;
+	double db = *(const double *) b;
+	return (da > db) - (da < db);
+}
+
+/**
 * @brief calculate central quantities: see description in Fregeau & Rasio (2007) based upon Casertano & Hut (1985)
 */
 void central_calculate(void)
@@ -1241,6 +1250,9 @@ void central_calculate(void)
 	double m=0.0, *rhoj, mrho, Vrj, rhojsum, Msincentral, Mbincentral, Vcentral, rcentral;
 	long J=6, i, j, jmin, jmax, nave, Ncentral;
 	double rhoj2sum;
+	double *Tbs_arr, *Tbb_arr, old_n_sin, old_n_bin;
+	double Tbs_min_loc=GSL_POSINF, Tbb_min_loc=GSL_POSINF;
+	long nTarr=0;
 
 	//MPI: The first part is done on all nodes, since they mostly need only the duplicated arrays. The second part is done on the root node, and broadcasted to all other nodes. Parallelization is mostly trivial and easily understandable from reading the code.
 	/* average over all stars out to half-mass radius */
@@ -1346,6 +1358,21 @@ void central_calculate(void)
 	Trc = 0.065 * cub(central.v_rms) / (central.rho * central.m_ave);
 
 
+	/* Timestep diagnostics: per-binary bin-bin and bin-single interaction timescales for
+	   the central binaries, computed with the same expressions as get_Tbb()/get_Tbs() but
+	   using each binary's own a, mass, and velocity. The number densities are the ones from
+	   the previous timestep, since central.n_sin/n_bin are only recomputed below. */
+	old_n_sin = central.n_sin;
+	old_n_bin = central.n_bin;
+	Tbs_arr = (double *) malloc((MIN(NUM_CENTRAL_STARS, clus.N_STAR) + 1) * sizeof(double));
+	Tbb_arr = (double *) malloc((MIN(NUM_CENTRAL_STARS, clus.N_STAR) + 1) * sizeof(double));
+	central.Tbs_median = GSL_POSINF;
+	central.Tbb_median = GSL_POSINF;
+	central.Tbs_p99 = GSL_POSINF;
+	central.Tbb_p99 = GSL_POSINF;
+	central.Tbs_min = GSL_POSINF;
+	central.Tbb_min = GSL_POSINF;
+
 	/* calculate other quantities using old method */
 	Ncentral = 0;
 	Msincentral = 0.0;
@@ -1392,9 +1419,65 @@ void central_calculate(void)
 				central.a_ave += binary[star[i].binind].a;
 				central.a2_ave += sqr(binary[star[i].binind].a);
 				central.ma_ave += star_m[j] / ((double) clus.N_STAR) * binary[star[i].binind].a;
+
+				/* per-binary interaction timescales for the timestep diagnostics */
+				{
+					double a = binary[star[i].binind].a;
+					double mbin = star_m[j] * madhoc;
+					double v = sqrt(sqr(star[i].vr) + sqr(star[i].vt));
+
+					if (old_n_sin > 0.0 && v > 0.0) {
+						Tbs_arr[nTarr] = 1.0 / (4.0 * sqrt(PI) * old_n_sin * sqr(XBS) * (v/sqrt(3.0)) * sqr(a) * 
+								(1.0 + mbin * a / (XBS * sqr(v/sqrt(3.0)) * sqr(a)))) * 
+							log(GAMMA * ((double) clus.N_STAR)) / ((double) clus.N_STAR);
+						if (Tbs_arr[nTarr] < Tbs_min_loc)
+							Tbs_min_loc = Tbs_arr[nTarr];
+					} else {
+						Tbs_arr[nTarr] = GSL_POSINF;
+					}
+
+					if (old_n_bin > 0.0 && v > 0.0) {
+						Tbb_arr[nTarr] = 1.0 / (16.0 * sqrt(PI) * old_n_bin * sqr(XBB) * (v/sqrt(3.0)) * sqr(a) * 
+								(1.0 + mbin * a / (2.0 * XBB * sqr(v/sqrt(3.0)) * sqr(a)))) * 
+							log(GAMMA * ((double) clus.N_STAR)) / ((double) clus.N_STAR);
+						if (Tbb_arr[nTarr] < Tbb_min_loc)
+							Tbb_min_loc = Tbb_arr[nTarr];
+					} else {
+						Tbb_arr[nTarr] = GSL_POSINF;
+					}
+					nTarr++;
+				}
 			}
 		}
 	}
+
+	/* Timestep diagnostics are only needed on the root node, which is the only one that
+	   writes them out to the timestep file. */
+	if (myid == 0 && nTarr > 0) {
+		long p01_idx;
+
+		central.Tbs_min = Tbs_min_loc;
+		central.Tbb_min = Tbb_min_loc;
+
+		qsort(Tbs_arr, nTarr, sizeof(double), compare_double);
+		qsort(Tbb_arr, nTarr, sizeof(double), compare_double);
+		if (nTarr % 2 == 0) {
+			central.Tbs_median = 0.5 * (Tbs_arr[nTarr/2 - 1] + Tbs_arr[nTarr/2]);
+			central.Tbb_median = 0.5 * (Tbb_arr[nTarr/2 - 1] + Tbb_arr[nTarr/2]);
+		} else {
+			central.Tbs_median = Tbs_arr[nTarr/2];
+			central.Tbb_median = Tbb_arr[nTarr/2];
+		}
+
+		/* timescale below which only 1% of the central binaries lie */
+		p01_idx = (long) ceil(0.01 * nTarr) - 1;
+		if (p01_idx < 0)
+			p01_idx = 0;
+		central.Tbs_p99 = Tbs_arr[p01_idx];
+		central.Tbb_p99 = Tbb_arr[p01_idx];
+	}
+	free(Tbs_arr);
+	free(Tbb_arr);
 
 	tmpTimeStart = timeStartSimple();
 	//MPI: Packing into array to optimize communication.
@@ -1934,6 +2017,7 @@ void set_global_vars1()
     mpi_morepulsarfile_len=0;
     mpi_morecollfile_len=0;
     mpi_triplefile_len=0;
+    mpi_timestepfile_len=0;
 
     mpi_logfile_ofst_total=0;
     mpi_escfile_ofst_total=0;
@@ -1949,6 +2033,7 @@ void set_global_vars1()
     mpi_morepulsarfile_ofst_total=0;
     mpi_morecollfile_ofst_total=0;
     mpi_triplefile_ofst_total=0;
+    mpi_timestepfile_ofst_total=0;
 }
 
 void set_global_vars2()
